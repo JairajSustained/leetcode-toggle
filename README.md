@@ -73,10 +73,13 @@ today's challenge against LeetCode's UTC day boundary.
 
 The binary doubles as a diagnostics CLI:
 
+After a `./build.sh`, the universal binary lives at
+`.build/universal/LeetCodeToggle` and doubles as a diagnostics CLI:
+
 ```bash
-.build/release/leetcode-toggle --check [username]   # print today's snapshot
-.build/release/leetcode-toggle --icon-preview <dir> # render menu-bar icon states
-.build/release/leetcode-toggle --app-icon <dir>     # render the .iconset
+.build/universal/LeetCodeToggle --check [username]   # print today's snapshot
+.build/universal/LeetCodeToggle --icon-preview <dir> # render menu-bar icon states
+.build/universal/LeetCodeToggle --app-icon <dir>     # render the .iconset
 ```
 
 ## Build from source
@@ -91,7 +94,7 @@ The binary doubles as a diagnostics CLI:
 The binary is built for **arm64 and x86_64** and combined into a universal
 binary, so the app runs natively on Apple Silicon and Intel Macs.
 
-Tag a release (`git tag v1.0.0 && git push --tags`) and the GitHub Actions
+Tag a release (`git tag v1.0.2 && git push --tags`) and the GitHub Actions
 workflow builds and attaches the `.dmg` to the release.
 
 ## Distribution
@@ -122,8 +125,6 @@ release will then be signed + notarized automatically.
 
 ## Project layout
 
-## Project layout
-
 ```
 Package.swift                  SPM manifest (macOS 14+, Swift 5 mode)
 build.sh                       assembles dist/LeetCodeToggle.app (icon, plist, signing)
@@ -147,7 +148,9 @@ Sources/leetcode-toggle/
 - Menu-bar only (`LSUIElement`) — no Dock icon, no window until you open one.
 - Day boundaries follow LeetCode's **UTC midnight**, so "today" can differ
   from your local date around midnight.
-- The app is ad-hoc signed; for your own builds that's all you need.
+- Downloads from other Macs: see [Distribution](#distribution) — one
+  right-click → **Open** (or the `xattr` command) clears the Gatekeeper
+  warning until the project is Developer-ID signed + notarized.
 
 ## License
 
