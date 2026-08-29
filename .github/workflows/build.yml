@@ -24,19 +24,34 @@ jobs:
           /usr/libexec/PlistBuddy -c "Print CFBundleIdentifier" dist/LeetCodeToggle.app/Contents/Info.plist
 
       # --- Optional: Developer ID signing + notarization -------------------
-      # Add these as repository Secrets (Settings → Secrets and variables):
+      # Note: the `secrets` context can't be used in step `if:` conditions,
+      # so this step is always run and no-ops when no credentials are set.
+      #
+      # To enable, add these to the repo's Settings → Secrets and variables
+      # → Actions (requires a paid Apple Developer account):
       #   APPLE_CERTIFICATE          base64 of your "Developer ID Application" .p12
       #   APPLE_CERTIFICATE_PASSWORD password of that .p12
       #   APPLE_ID                   your Apple ID email
-      #   APPLE_APP_PASSWORD         an app-specific password (Settings → Sign-In & Security)
+      #   APPLE_APP_PASSWORD         an app-specific password
       #   APPLE_TEAM_ID              your 10-character Apple Team ID
-      # (Requires a paid Apple Developer account.)
-      - name: Install signing certificate
-        if: ${{ secrets.APPLE_CERTIFICATE != '' }}
+      # Optional variable (Settings → Variables):
+      #   APPLE_SIGNING_IDENTITY     exact certificate name, e.g.
+      #                              "Developer ID Application: Name (TEAMID)"
+      - name: Sign with Developer ID + notarize (skipped without credentials)
         env:
           CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
           CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          SIGN_IDENTITY: ${{ vars.APPLE_SIGNING_IDENTITY }}
         run: |
+          if [ -z "$CERTIFICATE" ]; then
+            echo "No APPLE_CERTIFICATE secret set — shipping the ad-hoc signed build."
+            exit 0
+          fi
+
+          # Import the signing certificate
           echo "$CERTIFICATE" | base64 --decode > signing.p12
           security create-keychain -p "build" build.keychain
           security import signing.p12 -P "$CERTIFICATE_PASSWORD" -t cert -f pkcs12 -A -k build.keychain
@@ -44,25 +59,16 @@ jobs:
           security list-keychain -d user -s build.keychain
           rm signing.p12
 
-      - name: Sign with Developer ID
-        if: ${{ secrets.APPLE_CERTIFICATE != '' }}
-        env:
-          SIGN_IDENTITY: ${{ vars.APPLE_SIGNING_IDENTITY }}
-        run: |
-          : "${SIGN_IDENTITY:=Developer ID Application: ${APPLE_ID_NAME:-unknown}}"
+          # Sign with hardened runtime
+          : "${SIGN_IDENTITY:=$(security find-identity -v -p codesigning | awk -F'"' '/Developer ID Application/ {print $2; exit}')}"
+          echo "Signing identity: $SIGN_IDENTITY"
           codesign --force --deep --options runtime \
             --sign "$SIGN_IDENTITY" \
             --timestamp https://timestamp.apple.com/ts01 \
             dist/LeetCodeToggle.app
           codesign --verify --verbose dist/LeetCodeToggle.app
 
-      - name: Notarize + staple
-        if: ${{ secrets.APPLE_CERTIFICATE != '' }}
-        env:
-          APPLE_ID: ${{ secrets.APPLE_ID }}
-          APPLE_APP_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-        run: |
+          # Notarize + staple
           ditto -c -k --keepParent dist/LeetCodeToggle.app LeetCodeToggle.app.zip
           xcrun notarytool submit LeetCodeToggle.app.zip \
             --apple-id "$APPLE_ID" \
@@ -72,9 +78,7 @@ jobs:
           xcrun stapler staple dist/LeetCodeToggle.app
           rm LeetCodeToggle.app.zip
 
-      - name: Rebuild .dmg (includes any signing changes)
-        if: ${{ secrets.APPLE_CERTIFICATE != '' }}
-        run: |
+          # Rebuild the .dmg so it contains the signed + stapled app
           STAGE=dmg-staging
           rm -rf "$STAGE" dist/LeetCodeToggle.dmg
           mkdir -p "$STAGE"
