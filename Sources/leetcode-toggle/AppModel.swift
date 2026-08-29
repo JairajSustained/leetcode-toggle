@@ -49,18 +49,23 @@ final class AppModel: ObservableObject {
 
         refreshTask?.cancel()
         state = .loading
-        refreshTask = Task { [weak self] in
+        // Strong capture: the task runs briefly and releases us; the
+        // temporary self↔task cycle is not a leak.
+        let selfRef = self
+        refreshTask = Task {
             do {
                 let snap = try await LeetCodeAPI.snapshot(username: username)
                 guard !Task.isCancelled else { return }
+                let model = selfRef
                 await MainActor.run {
-                    self?.snapshot = snap
-                    self?.state = .loaded(Date())
+                    model.snapshot = snap
+                    model.state = .loaded(Date())
                 }
             } catch {
                 guard !Task.isCancelled else { return }
+                let model = selfRef
                 await MainActor.run {
-                    self?.state = .failed(error.localizedDescription)
+                    model.state = .failed(error.localizedDescription)
                 }
             }
         }
@@ -72,7 +77,8 @@ final class AppModel: ObservableObject {
         timer?.invalidate()
         let interval = settings.refreshInterval
         timer = Timer.scheduledTimer(withTimeInterval: interval, repeats: true) { [weak self] _ in
-            Task { @MainActor in self?.refresh() }
+            guard let self else { return }
+            Task { @MainActor in self.refresh() }
         }
     }
 
