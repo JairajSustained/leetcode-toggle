@@ -2,7 +2,7 @@ import Foundation
 import ServiceManagement
 
 /// App preferences, persisted in UserDefaults.
-@MainActor
+/// (main-thread only in practice: SwiftUI + the app delegate)
 final class SettingsStore: ObservableObject {
 
     @Published var username: String {

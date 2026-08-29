@@ -2,13 +2,18 @@ import SwiftUI
 
 /// The right-click "Activity" window: streak, today's challenge,
 /// a 26-week heatmap ("when you coded") and recent accepted problems.
+@MainActor
 struct ActivityView: View {
     let model: AppModel
 
     var body: some View {
         Group {
             switch model.state {
-            case .idle, .loading where model.snapshot == nil:
+            case .idle:
+                center {
+                    ProgressView("Loading your stats…")
+                }
+            case .loading where model.snapshot == nil:
                 center {
                     ProgressView("Loading your stats…")
                 }

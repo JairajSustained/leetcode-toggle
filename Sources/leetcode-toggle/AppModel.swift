@@ -3,7 +3,10 @@ import Foundation
 import Combine
 
 /// Central observable state: current snapshot, refresh state, timer.
-@MainActor
+///
+/// Not actor-isolated on purpose (keeps SwiftUI/AppKit call sites simple
+/// across SDK generations); all published mutations happen on the main
+/// thread — network completions hop via `MainActor.run`.
 final class AppModel: ObservableObject {
 
     @Published private(set) var snapshot: Snapshot?
@@ -42,7 +45,7 @@ final class AppModel: ObservableObject {
             state = .failed("Add your LeetCode username in Settings.")
             return
         }
-        let username = settings.username.trimmingCharacters(in: .whitespaces)
+        let username = settings.trimmedUsername
 
         refreshTask?.cancel()
         state = .loading
@@ -89,7 +92,7 @@ final class AppModel: ObservableObject {
     }
 
     func openProfile() {
-        let username = settings.username.trimmingCharacters(in: .whitespaces)
+        let username = settings.trimmedUsername
         guard !username.isEmpty else { return }
         NSWorkspace.shared.open(URL(string: "https://leetcode.com/\(username)/")!)
     }

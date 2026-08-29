@@ -33,7 +33,6 @@ MainActor.assumeIsolated {
             exit(2)
         }
         let done = DispatchSemaphore(value: 0)
-        var exitCode: Int32 = 0
         Task.detached {
             do {
                 let snap = try await LeetCodeAPI.snapshot(username: username)
@@ -46,14 +45,14 @@ MainActor.assumeIsolated {
                 print("active last 7d:  \(snap.activeDaysLastWeek)/7")
                 print("recent ACs:      \(snap.recentACs.count) (newest: \(snap.recentACs.first?.title ?? "-"))")
                 print("icon state:      \(snap.didSolveToday ? "green + ✓ (solved)" : "red (not solved yet)")")
+                done.signal()
             } catch {
                 print("FAILED: \(error.localizedDescription)")
-                exitCode = 1
+                exit(1) // process exits; the semaphore wait below is moot
             }
-            done.signal()
         }
         done.wait()
-        exit(exitCode)
+        exit(0)
     }
 
     let app = NSApplication.shared
