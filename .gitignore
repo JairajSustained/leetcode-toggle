@@ -1,0 +1,10 @@
+# Build artifacts
+.build/
+dist/
+*.dSYM/
+
+# macOS
+.DS_Store
+
+# Local dev tooling (not part of the app)
+.mcp.json
