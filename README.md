@@ -99,29 +99,46 @@ workflow builds and attaches the `.dmg` to the release.
 
 ## Distribution
 
-Like most Mac apps, releases are distributed as a `.dmg` (drag-to-Applications).
+Releases ship as a `.dmg` (drag-to-Applications), like most Mac apps.
 
-**Current state (no Apple account needed):** the app is *ad-hoc* signed. On
-your own Mac it just works; on other Macs, Gatekeeper shows
-"unidentified developer" — right-click → **Open** once, or run
-`xattr -dr com.apple.quarantine /Applications/LeetCodeToggle.app`.
+### How to install
 
-**Full trust (what big companies do):** sign with a **Developer ID**
-(paid Apple Developer account, $99/yr) and **notarize** with Apple, so
-downloads open with no warnings. The CI workflow already supports this —
-just add these to the repo's *Settings → Secrets and variables → Actions*:
+1. Download `LeetCodeToggle.dmg` from the [Releases](../../releases) page.
+2. Open the `.dmg` and drag **LeetCodeToggle** into **Applications**.
+3. Launch it from Applications — it lives in the menu bar (top-right corner),
+   then set your LeetCode username (left-click the icon → Settings).
 
-| Secret | What it is |
-| --- | --- |
-| `APPLE_CERTIFICATE` | your "Developer ID Application" certificate (.p12), base64-encoded |
-| `APPLE_CERTIFICATE_PASSWORD` | that .p12's password |
-| `APPLE_ID` | your Apple ID email |
-| `APPLE_APP_PASSWORD` | an app-specific password |
-| `APPLE_TEAM_ID` | your 10-character Team ID |
+### About the first-launch warning
 
-and the variable `APPLE_SIGNING_IDENTITY` (the exact certificate name,
-e.g. `Developer ID Application: Your Name (TEAMID)`). The next tagged
-release will then be signed + notarized automatically.
+This app is **not signed or notarized by Apple yet**. Apple only trusts
+apps signed with a *Developer ID*, which requires a **paid Apple Developer
+account ($99/year)** — a cost this small project hasn't taken on yet, so
+the release is only ad-hoc signed.
+
+Because of that, macOS Gatekeeper will warn you on the **first** launch:
+
+> "LeetCodeToggle" cannot be opened because the developer cannot be verified.
+
+The app is safe to open: it's open source, and the only thing it ever sends
+is your LeetCode username to leetcode.com — no password, no analytics, no
+third parties (see [Privacy](#privacy)). To open it, pick one:
+
+- **Easiest:** right-click (or Control-click) LeetCodeToggle in Finder →
+  **Open** → click **Open** again in the dialog. You only ever do this once.
+- **Or from Terminal:**
+
+  ```bash
+  xattr -dr com.apple.quarantine /Applications/LeetCodeToggle.app
+  ```
+
+After that first open, the app launches normally and forever.
+
+> **For contributors:** the CI workflow already knows how to sign with a
+> Developer ID and notarize the moment credentials are added as repo
+> secrets — the full list is commented in
+> [`.github/workflows/build.yml`](.github/workflows/build.yml).
+> Once done, the next tagged release will open on any Mac with zero
+> warnings.
 
 ## Project layout
 
