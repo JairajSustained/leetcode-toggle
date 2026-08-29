@@ -27,10 +27,11 @@ completed today's LeetCode challenge.
 
 ## Install
 
-**From a GitHub release** (recommended): download `LeetCodeToggle.app.zip`
-from the [Releases](../../releases) page, unzip, and move to
-`/Applications`. First launch: right-click the app in Finder → **Open**
-(it's ad-hoc signed, so Gatekeeper asks once).
+**From a GitHub release** (recommended): download `LeetCodeToggle.dmg`
+from the [Releases](../../releases) page, open it, and drag
+**LeetCodeToggle** into **Applications** — the classic macOS install.
+First launch: right-click the app in Finder → **Open** (the build is
+ad-hoc signed, so Gatekeeper asks once; see [Distribution](#distribution)).
 
 **From source** (macOS 14+, Xcode command line tools):
 
@@ -81,14 +82,45 @@ The binary doubles as a diagnostics CLI:
 ## Build from source
 
 ```bash
-./build.sh            # build dist/LeetCodeToggle.app
-./build.sh install    # build + copy to /Applications
+./build.sh            # universal .app + .dmg in dist/
+./build.sh install    # build + copy app to /Applications
 ./build.sh launch     # build + install + start
 ./build.sh uninstall  # stop + remove from /Applications
 ```
 
+The binary is built for **arm64 and x86_64** and combined into a universal
+binary, so the app runs natively on Apple Silicon and Intel Macs.
+
 Tag a release (`git tag v1.0.0 && git push --tags`) and the GitHub Actions
-workflow builds and attaches the `.app` zip to the release.
+workflow builds and attaches the `.dmg` to the release.
+
+## Distribution
+
+Like most Mac apps, releases are distributed as a `.dmg` (drag-to-Applications).
+
+**Current state (no Apple account needed):** the app is *ad-hoc* signed. On
+your own Mac it just works; on other Macs, Gatekeeper shows
+"unidentified developer" — right-click → **Open** once, or run
+`xattr -dr com.apple.quarantine /Applications/LeetCodeToggle.app`.
+
+**Full trust (what big companies do):** sign with a **Developer ID**
+(paid Apple Developer account, $99/yr) and **notarize** with Apple, so
+downloads open with no warnings. The CI workflow already supports this —
+just add these to the repo's *Settings → Secrets and variables → Actions*:
+
+| Secret | What it is |
+| --- | --- |
+| `APPLE_CERTIFICATE` | your "Developer ID Application" certificate (.p12), base64-encoded |
+| `APPLE_CERTIFICATE_PASSWORD` | that .p12's password |
+| `APPLE_ID` | your Apple ID email |
+| `APPLE_APP_PASSWORD` | an app-specific password |
+| `APPLE_TEAM_ID` | your 10-character Team ID |
+
+and the variable `APPLE_SIGNING_IDENTITY` (the exact certificate name,
+e.g. `Developer ID Application: Your Name (TEAMID)`). The next tagged
+release will then be signed + notarized automatically.
+
+## Project layout
 
 ## Project layout
 

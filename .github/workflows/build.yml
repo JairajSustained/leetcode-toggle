@@ -14,27 +14,85 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Build .app bundle
+      - name: Build universal .app + .dmg
         run: ./build.sh
 
       - name: Verify bundle
         run: |
           codesign --verify --verbose dist/LeetCodeToggle.app
+          lipo -info dist/LeetCodeToggle.app/Contents/MacOS/LeetCodeToggle
           /usr/libexec/PlistBuddy -c "Print CFBundleIdentifier" dist/LeetCodeToggle.app/Contents/Info.plist
 
-      - name: Package for download
+      # --- Optional: Developer ID signing + notarization -------------------
+      # Add these as repository Secrets (Settings → Secrets and variables):
+      #   APPLE_CERTIFICATE          base64 of your "Developer ID Application" .p12
+      #   APPLE_CERTIFICATE_PASSWORD password of that .p12
+      #   APPLE_ID                   your Apple ID email
+      #   APPLE_APP_PASSWORD         an app-specific password (Settings → Sign-In & Security)
+      #   APPLE_TEAM_ID              your 10-character Apple Team ID
+      # (Requires a paid Apple Developer account.)
+      - name: Install signing certificate
+        if: ${{ secrets.APPLE_CERTIFICATE != '' }}
+        env:
+          CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+        run: |
+          echo "$CERTIFICATE" | base64 --decode > signing.p12
+          security create-keychain -p "build" build.keychain
+          security import signing.p12 -P "$CERTIFICATE_PASSWORD" -t cert -f pkcs12 -A -k build.keychain
+          security set-keychain-settings -lut 7200 build.keychain
+          security list-keychain -d user -s build.keychain
+          rm signing.p12
+
+      - name: Sign with Developer ID
+        if: ${{ secrets.APPLE_CERTIFICATE != '' }}
+        env:
+          SIGN_IDENTITY: ${{ vars.APPLE_SIGNING_IDENTITY }}
+        run: |
+          : "${SIGN_IDENTITY:=Developer ID Application: ${APPLE_ID_NAME:-unknown}}"
+          codesign --force --deep --options runtime \
+            --sign "$SIGN_IDENTITY" \
+            --timestamp https://timestamp.apple.com/ts01 \
+            dist/LeetCodeToggle.app
+          codesign --verify --verbose dist/LeetCodeToggle.app
+
+      - name: Notarize + staple
+        if: ${{ secrets.APPLE_CERTIFICATE != '' }}
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         run: |
           ditto -c -k --keepParent dist/LeetCodeToggle.app LeetCodeToggle.app.zip
+          xcrun notarytool submit LeetCodeToggle.app.zip \
+            --apple-id "$APPLE_ID" \
+            --app-password "$APPLE_APP_PASSWORD" \
+            --team-id "$APPLE_TEAM_ID" \
+            --wait
+          xcrun stapler staple dist/LeetCodeToggle.app
+          rm LeetCodeToggle.app.zip
+
+      - name: Rebuild .dmg (includes any signing changes)
+        if: ${{ secrets.APPLE_CERTIFICATE != '' }}
+        run: |
+          STAGE=dmg-staging
+          rm -rf "$STAGE" dist/LeetCodeToggle.dmg
+          mkdir -p "$STAGE"
+          cp -R dist/LeetCodeToggle.app "$STAGE/"
+          ln -s /Applications "$STAGE/Applications"
+          hdiutil create -volname "LeetCode Toggle" -srcfolder "$STAGE" \
+            -ov -format UDZO dist/LeetCodeToggle.dmg
+          rm -rf "$STAGE"
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: LeetCodeToggle
-          path: LeetCodeToggle.app.zip
+          path: dist/LeetCodeToggle.dmg
 
       - name: Attach to release (on tag)
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
-          files: LeetCodeToggle.app.zip
+          files: dist/LeetCodeToggle.dmg
           generate_release_notes: true
